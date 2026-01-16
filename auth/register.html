@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Account</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="register.css" />
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
+  </head>
+  <body>
+    <main>
+      <div class="register-container">
+        <div class="register-left">
+          <img
+            src="https://i.pinimg.com/736x/91/e4/4b/91e44b93cd1940ca3e1e766448b672bf.jpg"
+            alt=""
+          />
+        </div>
+
+        <div class="register-right">
+          <h2>Create Account</h2>
+          <p>Welcome! Enter Your Details And Start<br /></p>
+          <form class="register-form" id="register-form">
+            <div class="input-group">
+              <i class="fas fa-envelope"></i>
+              <input
+                type="email"
+                name="email"
+                placeholder="Email Address"
+                required
+              />
+            </div>
+            <div class="input-group">
+              <i class="fa-solid fa-person"></i>
+              <input type="number" name="age" placeholder="Your Age" required />
+            </div>
+            <div class="input-group">
+              <i class="fa-solid fa-phone"></i>
+              <input
+                type="number"
+                name="phone"
+                placeholder="Your Phone"
+                required
+              />
+            </div>
+            <div class="input-group">
+              <i class="fas fa-lock"></i>
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                required
+              />
+            </div>
+            <!-- <div class="input-group">
+              <i class="fas fa-lock"></i>
+              <input
+                type="password"
+                name="password"
+                placeholder="Confirm Password"
+                required
+              />
+            </div> -->
+            <button type="submit">Create account</button>
+          </form>
+          <div class="location-btn">
+            <button class="btn"><a href="./register.html">Register</a></button>
+            <button class="btn"><a href="./login.html">Login</a></button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="./auth.js"></script>
+  </body>
+</html>
