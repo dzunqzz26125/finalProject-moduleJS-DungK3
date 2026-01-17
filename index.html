@@ -9,6 +9,107 @@
   </head>
 
   <body>
+    <!-- MODAL FORM ADDTASKS -->
+    <div id="add-task-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-overlay" id="add-overlay"></div>
+
+      <div
+        class="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add new task"
+      >
+        <div class="modal-head">
+          <h3>Add new task</h3>
+          <button
+            type="button"
+            class="icon-btn"
+            id="btn-close-add"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form id="add-task-form" class="form-grid">
+          <div class="field">
+            <label>Task title</label>
+            <input type="text" name="task" placeholder="Task title" required minlength="3" maxlength="100" />
+            <span class="error-msg" id="task-error"></span>
+          </div>
+
+          <div class="field">
+            <label>Description</label>
+            <textarea name="description" placeholder="Description" maxlength="500"></textarea>
+            <span class="error-msg" id="description-error"></span>
+          </div>
+
+          <div class="field">
+            <label>Category</label>
+            <div class="custom-select" id="category-select">
+              <div class="select-trigger">
+                <span class="select-text">Work</span>
+                <div class="select-arrow">▼</div>
+              </div>
+              <div class="select-options">
+                <div class="select-option" data-value="work">Work</div>
+                <div class="select-option" data-value="personal">Personal</div>
+                <div class="select-option" data-value="shopping">Shopping</div>
+                <div class="select-option" data-value="health">Health</div>
+                <div class="select-option" data-value="education">Education</div>
+                <div class="select-option" data-value="other">Other</div>
+              </div>
+            </div>
+            <input type="hidden" name="category" value="work" />
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label>Priority</label>
+              <div class="custom-select" id="priority-select">
+                <div class="select-trigger">
+                  <span class="select-text">Medium</span>
+                  <div class="select-arrow">▼</div>
+                </div>
+                <div class="select-options">
+                  <div class="select-option" data-value="high">High</div>
+                  <div class="select-option selected" data-value="medium">Medium</div>
+                  <div class="select-option" data-value="low">Low</div>
+                </div>
+              </div>
+              <input type="hidden" name="priority" value="medium" />
+            </div>
+
+            <div class="field">
+              <label>Status</label>
+              <div class="custom-select" id="status-select">
+                <div class="select-trigger">
+                  <span class="select-text">Todo</span>
+                  <div class="select-arrow">▼</div>
+                </div>
+                <div class="select-options">
+                  <div class="select-option selected" data-value="todo">Todo</div>
+                </div>
+              </div>
+              <input type="hidden" name="status" value="todo" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Deadline</label>
+            <input type="datetime-local" id="deadline-at" name="deadlineAt" />
+            <span class="error-msg" id="deadline-error"></span>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="btn-cancel" class="btn btn-ghost">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <!-- Background glow -->
     <div class="bg-glow" aria-hidden="true">
       <span class="glow glow-indigo"></span>
@@ -40,8 +141,14 @@
         </div>
 
         <div class="topbar-actions">
-          <button id="btn-export" class="btn btn-ghost" type="button">
-            Export
+          <span id="user-label" class="badge">User: </span>
+          <button
+            onclick="logoutAcc()"
+            id="btn-logout"
+            class="btn btn-ghost"
+            type="button"
+          >
+            Log out
           </button>
           <button id="btn-settings" class="btn btn-ghost" type="button">
             Settings
@@ -101,27 +208,35 @@
                 <div class="tabs" role="tablist" aria-label="Task filter">
                   <button
                     data-filter="all"
-                    class="tab tab-all"
+                    class="tab tab-active"
                     id="tab-all"
                     type="button"
                   >
                     All
                   </button>
                   <button
-                    data-filter="active"
+                    data-filter="todo"
                     class="tab"
-                    id="tab-active"
+                    id="tab-todo"
                     type="button"
                   >
-                    Active
+                    Todo
                   </button>
                   <button
-                    data-filter="completed"
+                    data-filter="doing"
                     class="tab"
-                    id="tab-completed"
+                    id="tab-doing"
                     type="button"
                   >
-                    Completed
+                    Doing
+                  </button>
+                  <button
+                    data-filter="done"
+                    class="tab"
+                    id="tab-done"
+                    type="button"
+                  >
+                    Done
                   </button>
                 </div>
                 <div class="legend">
@@ -161,29 +276,64 @@
                 </div>
               </div>
 
-              <!-- Add task -->
-              <form id="task-form" class="add">
-                <input
-                  id="task-input"
-                  class="input"
-                  type="text"
-                  name="task"
-                  placeholder="Add a new task..."
-                  required
-                />
-
-                <div class="add-right">
-                  <select id="priority" class="select" name="priority">
-                    <option value="high">High</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-
-                  <button class="btn btn-primary" type="submit">
-                    Add task
-                  </button>
+              <!-- Add task & filter category -->
+              <div class="add-and-filter-time">
+                <button id="btn-open-add" class="btn btn-primary">
+                  + Add Task
+                </button>
+                <div class="filter-row">
+                  <div class="custom-select" id="category-filter">
+                    <div class="select-trigger">
+                      <span class="select-text">All Categories</span>
+                      <div class="select-arrow">▼</div>
+                    </div>
+                    <div class="select-options">
+                      <div class="select-option selected" data-value="all">All Categories</div>
+                      <div class="select-option" data-value="work">Work</div>
+                      <div class="select-option" data-value="personal">Personal</div>
+                      <div class="select-option" data-value="shopping">Shopping</div>
+                      <div class="select-option" data-value="health">Health</div>
+                      <div class="select-option" data-value="education">Education</div>
+                      <div class="select-option" data-value="other">Other</div>
+                    </div>
+                  </div>
+                  <div class="custom-select" id="time-filter">
+                    <div class="select-trigger">
+                      <span class="select-text">All time</span>
+                      <div class="select-arrow">▼</div>
+                    </div>
+                    <div class="select-options">
+                      <div class="select-option selected" data-value="all">All time</div>
+                      <div class="select-option" data-value="overdue">Overdue</div>
+                      <div class="select-option" data-value="today">Due today</div>
+                      <div class="select-option" data-value="next7d">Next 7 days</div>
+                      <div class="select-option" data-value="next30d">Next 30 days</div>
+                      <div class="select-option" data-value="nodeadline">No deadline</div>
+                    </div>
+                  </div>
                 </div>
-              </form>
+
+                  <div id="range-box" class="range hidden">
+                    <input id="range-from" type="date" class="input" />
+                    <span class="muted small">→</span>
+                    <input id="range-to" type="date" class="input" />
+                    <button
+                      id="range-apply"
+                      class="btn btn-ghost"
+                      type="button"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      id="range-clear"
+                      class="btn btn-ghost"
+                      type="button"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- List -->
@@ -215,7 +365,12 @@
               <!-- Footer -->
               <div class="footer">
                 <span id="remaining" class="muted">0 items left</span>
-                <button id="btn-clear-2" class="btn btn-ghost" type="button">
+                <button
+                  onclick="clearCompletedTask()"
+                  id="btn-clear-2"
+                  class="btn btn-ghost"
+                  type="button"
+                >
                   Clear completed
                 </button>
               </div>

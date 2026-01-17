@@ -48,7 +48,18 @@ async function login(email, password) {
     if (!token) throw new Error("Login ok nhưng không nhận được accessToken");
 
     localStorage.setItem("accessToken", token);
-    if (data?.data) localStorage.setItem("user", JSON.stringify(data.data));
+    if (data?.data) {
+      localStorage.setItem("user", JSON.stringify(data.data));
+      // Also save to TaskStorage for Local Storage mode
+      if (window.TaskStorage) {
+        const taskStorage = new window.TaskStorage();
+        taskStorage.setCurrentUser({
+          id: data.data.id || data.data._id || email,
+          email: email,
+          ...data.data
+        });
+      }
+    }
 
     alert("Đăng nhập thành công");
     window.location.replace("/index.html");
