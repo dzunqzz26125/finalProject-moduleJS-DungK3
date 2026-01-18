@@ -10,7 +10,7 @@
 
   <body>
     <!-- MODAL FORM ADDTASKS -->
-    <div id="add-task-modal" class="modal hidden" aria-hidden="true">
+    <div id="add-task-modal" class="modal hidden">
       <div class="modal-overlay" id="add-overlay"></div>
 
       <div
@@ -89,6 +89,8 @@
                 </div>
                 <div class="select-options">
                   <div class="select-option selected" data-value="todo">Todo</div>
+                  <div class="select-option" data-value="doing">Doing</div>
+                  <div class="select-option" data-value="done">Done</div>
                 </div>
               </div>
               <input type="hidden" name="status" value="todo" />
@@ -96,8 +98,8 @@
           </div>
 
           <div class="field">
-            <label>Deadline</label>
-            <input type="datetime-local" id="deadline-at" name="deadlineAt" />
+            <label for="deadline-at">Deadline</label>
+            <input type="datetime-local" id="deadline-at" name="deadlineAt" onclick="this.showPicker()" />
             <span class="error-msg" id="deadline-error"></span>
           </div>
 

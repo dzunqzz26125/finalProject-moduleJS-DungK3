@@ -33,8 +33,16 @@ body {
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, --apple-system, Segoe UI, Roboto,
-    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    --apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    "Apple Color Emoji",
+    "Segoe UI Emoji";
   background: var(--bg);
   color: var(--text);
 }
@@ -286,7 +294,9 @@ body {
   padding: 12px;
   color: var(--text);
   cursor: pointer;
-  transition: transform 120ms ease, background 180ms ease;
+  transition:
+    transform 120ms ease,
+    background 180ms ease;
 }
 
 .filter-btn:hover {
@@ -572,6 +582,7 @@ body {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  cursor: pointer;
 }
 
 .task-text {
@@ -640,7 +651,10 @@ body {
   opacity: 0;
   transform: translateY(-6px) scale(0.98);
 
-  transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    max-height 0.35s ease,
+    opacity 0.25s ease,
+    transform 0.25s ease;
 }
 
 /* khi mở */
@@ -658,7 +672,10 @@ body {
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: transform 120ms ease, opacity 180ms ease, background 180ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 180ms ease,
+    background 180ms ease;
   color: var(--text);
   background: var(--glass);
 }
@@ -852,7 +869,7 @@ body {
 }
 
 .custom-select.open .select-options {
-  max-height: 200px;
+  max-height: 500px;
   opacity: 1;
   transform: translateY(0) scale(1);
 }

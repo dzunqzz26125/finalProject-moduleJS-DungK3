@@ -21,10 +21,6 @@ async function register(email, password, age, phone) {
       alert("Không được dể trống phones");
       return;
     }
-    if (age <= 6) {
-      alert("Người dùng không được bé hơn 6 tuổi");
-      return;
-    }
     await axios.post(`${api}/auth/register`, {
       email,
       password,
@@ -56,7 +52,7 @@ async function login(email, password) {
         taskStorage.setCurrentUser({
           id: data.data.id || data.data._id || email,
           email: email,
-          ...data.data
+          ...data.data,
         });
       }
     }

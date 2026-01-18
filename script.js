@@ -1,14 +1,70 @@
-const api = "https://api-class-o1lo.onrender.com/api/dungvh";
+// * Constants
+const CONSTANTS = {
+  API_URL: "https://api-class-o1lo.onrender.com/api/dungvh",
+  STORAGE_KEYS: {
+    ACCESS_TOKEN: "accessToken",
+    USER: "user",
+    CACHED_TASKS: "cached_tasks",
+  },
+  PRIORITY_COLORS: {
+    high: "#6366f1",
+    medium: "#fbbf24",
+    low: "#34d399",
+  },
+  CATEGORY_COLORS: {
+    work: "#3b82f6",
+    personal: "#10b981",
+    shopping: "#f59e0b",
+    health: "#ef4444",
+    education: "#8b5cf6",
+    other: "#6b7280",
+  },
+  MESSAGES: {
+    TASK_ADDED: "Task added successfully!",
+    TASK_UPDATED: "Task updated successfully!",
+    TASK_DELETED: "Task deleted successfully!",
+    CONFIRM_DELETE: "Do you want to delete this task?",
+    CONFIRM_CLEAR: "Do you want to delete completed tasks?",
+    CONFIRM_LOGOUT: "Bạn muốn đăng xuất?",
+    NO_COMPLETED: "No completed tasks to clear",
+    ERROR_GENERIC: "An error occurred. Please try again.",
+  },
+};
+
+const api = CONSTANTS.API_URL;
 let currentFilter = "all";
 let currentCategory = "all";
 let currentTimeFilter = "all";
 let currentKeyword = "";
 let currentTasks = [];
 
+// * Utility functions
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function handleError(
+  error,
+  fallbackMessage = CONSTANTS.MESSAGES.ERROR_GENERIC,
+) {
+  const message =
+    error?.response?.data?.message || error.message || fallbackMessage;
+  console.error("Error:", error);
+  alert(message);
+}
+
 (function authGuard() {
-  const accessToken = localStorage.getItem("accessToken");
+  const accessToken = localStorage.getItem(CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN);
   if (!accessToken || accessToken === "undefined" || accessToken === "null") {
-    localStorage.removeItem("accessToken");
+    localStorage.removeItem(CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN);
     window.location.replace("/auth/login.html");
     return;
   }
@@ -16,7 +72,7 @@ let currentTasks = [];
 
 // * Auth functions
 function getToken() {
-  return localStorage.getItem("accessToken");
+  return localStorage.getItem(CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN);
 }
 
 function authHeaders() {
@@ -31,7 +87,7 @@ function decodeJwtPayload(token) {
       atob(base64)
         .split("")
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
+        .join(""),
     );
     return JSON.parse(json);
   } catch {
@@ -65,11 +121,11 @@ showCurrentUser();
 const logout = document.getElementById("btn-logout");
 if (logout) {
   logout.addEventListener("click", () => {
-    const ok = confirm("Bạn muốn đăng xuất?");
+    const ok = confirm(CONSTANTS.MESSAGES.CONFIRM_LOGOUT);
     if (!ok) return;
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("cached_tasks");
+    Object.values(CONSTANTS.STORAGE_KEYS).forEach((key) => {
+      localStorage.removeItem(key);
+    });
     window.location.replace("/auth/login.html");
   });
 }
@@ -89,11 +145,30 @@ const progressTextEl = document.getElementById("progress-text");
 const progressBarEl = document.getElementById("progress-bar");
 const remainingEl = document.getElementById("remaining");
 
-// * Modal controls
-openBtn.addEventListener("click", () => modal.classList.remove("hidden"));
-closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
-cancelBtn.addEventListener("click", () => modal.classList.add("hidden"));
-overlay.addEventListener("click", () => modal.classList.add("hidden"));
+// * Modal controls with keyboard support
+openBtn.addEventListener("click", () => {
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+
+  const firstInput = modal.querySelector('input[name="task"]');
+  if (firstInput) firstInput.focus();
+});
+
+function closeModal() {
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  resetForm();
+}
+
+closeBtn.addEventListener("click", closeModal);
+cancelBtn.addEventListener("click", closeModal);
+overlay.addEventListener("click", closeModal);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+    closeModal();
+  }
+});
 
 // * Form Validation
 class FormValidator {
@@ -119,31 +194,33 @@ class FormValidator {
 
   showError(fieldName, message) {
     const errorEl = document.getElementById(`${fieldName}-error`);
-    const fieldEl = document
-      .querySelector(`[name="${fieldName}"]`)
-      .closest(".field");
-    if (errorEl && fieldEl) {
+    const fieldEl = document.querySelector(`[name="${fieldName}"]`);
+
+    if (errorEl) {
       errorEl.textContent = message;
       errorEl.classList.add("show");
-      fieldEl.classList.add("error");
+    }
+    if (fieldEl) {
+      fieldEl.closest(".field")?.classList.add("error");
     }
   }
 
   clearError(fieldName) {
     const errorEl = document.getElementById(`${fieldName}-error`);
-    const fieldEl = document
-      .querySelector(`[name="${fieldName}"]`)
-      .closest(".field");
-    if (errorEl && fieldEl) {
+    const fieldEl = document.querySelector(`[name="${fieldName}"]`);
+
+    if (errorEl) {
       errorEl.textContent = "";
       errorEl.classList.remove("show");
-      fieldEl.classList.remove("error");
+    }
+    if (fieldEl) {
+      fieldEl.closest(".field")?.classList.remove("error");
     }
   }
 
   validateForm(formData) {
-    ["task", "description", "deadline"].forEach((field) =>
-      this.clearError(field)
+    ["task", "description", "deadlineAt"].forEach((field) =>
+      this.clearError(field === "deadlineAt" ? "deadline" : field),
     );
     let isValid = true;
 
@@ -177,7 +254,9 @@ class CustomSelect {
     this.element = element;
     this.trigger = element.querySelector(".select-trigger");
     this.options = element.querySelector(".select-options");
-    this.hiddenInput = element.querySelector('input[type="hidden"]');
+    this.hiddenInput = element.parentElement.querySelector(
+      'input[type="hidden"]',
+    );
     this.textElement = element.querySelector(".select-text");
     this.init();
   }
@@ -222,16 +301,25 @@ class CustomSelect {
     option.classList.add("selected");
 
     this.textElement.textContent = text;
-    if (this.hiddenInput) this.hiddenInput.value = value;
+    if (this.hiddenInput) {
+      this.hiddenInput.value = value;
+      console.log(`CustomSelect updated hidden input to: ${value}`);
+    }
 
     this.element.dispatchEvent(
-      new CustomEvent("change", { detail: { value, text } })
+      new CustomEvent("change", { detail: { value, text } }),
     );
     this.close();
   }
 }
 
 // * Utility functions
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function filterToStatus(status) {
   if (status === "todo") return "ACTIVE";
   if (status === "doing") return "DOING";
@@ -258,7 +346,7 @@ function sortByPriority(tasks) {
 function applySearch(tasks) {
   if (!currentKeyword) return tasks;
   return tasks.filter((t) =>
-    (t.task || "").toLowerCase().includes(currentKeyword)
+    (t.task || "").toLowerCase().includes(currentKeyword),
   );
 }
 
@@ -285,28 +373,28 @@ function applyTimeFilter(tasks) {
     case "overdue":
       return tasks.filter(
         (t) =>
-          t.deadline && new Date(t.deadline) < now && t.status !== "COMPLETED"
+          t.deadline && new Date(t.deadline) < now && t.status !== "COMPLETED",
       );
     case "today":
       return tasks.filter(
         (t) =>
           t.deadline &&
           new Date(t.deadline) >= today &&
-          new Date(t.deadline) < tomorrow
+          new Date(t.deadline) < tomorrow,
       );
     case "next7d":
       return tasks.filter(
         (t) =>
           t.deadline &&
           new Date(t.deadline) >= now &&
-          new Date(t.deadline) <= next7Days
+          new Date(t.deadline) <= next7Days,
       );
     case "next30d":
       return tasks.filter(
         (t) =>
           t.deadline &&
           new Date(t.deadline) >= now &&
-          new Date(t.deadline) <= next30Days
+          new Date(t.deadline) <= next30Days,
       );
     case "nodeadline":
       return tasks.filter((t) => !t.deadline);
@@ -315,12 +403,14 @@ function applyTimeFilter(tasks) {
   }
 }
 
-// * Search
+// * Search with debounce
 if (searchInput) {
-  searchInput.addEventListener("input", () => {
+  const debouncedSearch = debounce(() => {
     currentKeyword = searchInput.value.trim().toLowerCase();
     renderTasks(sortByPriority(applySearch(currentTasks)));
-  });
+  }, 300);
+
+  searchInput.addEventListener("input", debouncedSearch);
 }
 
 // * Add Task
@@ -330,7 +420,7 @@ async function addTask(
   description,
   deadlineAt,
   category,
-  status
+  status,
 ) {
   try {
     const uid = getCurrentUserId();
@@ -345,16 +435,16 @@ async function addTask(
         deadline: deadlineAt ? new Date(deadlineAt).toISOString() : null,
         category: category || "work",
       },
-      authHeaders()
+      authHeaders(),
     );
 
     modal.classList.add("hidden");
-    alert("Task added successfully!");
-    addForm.reset();
-    resetFormSelects();
+    modal.setAttribute("aria-hidden", "true");
+    alert(CONSTANTS.MESSAGES.TASK_ADDED);
+    resetForm();
     await loadTasks();
   } catch (error) {
-    alert(error?.response?.data?.message || error.message);
+    handleError(error, "Failed to add task");
   }
 }
 
@@ -368,12 +458,18 @@ function resetFormSelects() {
   selects.forEach(({ id, text, value }) => {
     const select = document.querySelector(id);
     if (select) {
-      select.querySelector(".select-text").textContent = text;
-      select.querySelector('input[type="hidden"]').value = value;
-      select
-        .querySelectorAll(".select-option")
-        .forEach((opt) => opt.classList.remove("selected"));
-      select.querySelector(`[data-value="${value}"]`).classList.add("selected");
+      const textEl = select.querySelector(".select-text");
+      const hiddenInput = select.querySelector('input[type="hidden"]');
+      const optionEl = select.querySelector(`[data-value="${value}"]`);
+
+      if (textEl) textEl.textContent = text;
+      if (hiddenInput) hiddenInput.value = value;
+      if (optionEl) {
+        select
+          .querySelectorAll(".select-option")
+          .forEach((opt) => opt.classList.remove("selected"));
+        optionEl.classList.add("selected");
+      }
     }
   });
 }
@@ -385,17 +481,20 @@ async function loadTasks() {
     let tasks = res?.data?.data || [];
     tasks = filterTasksByUser(tasks);
 
-    localStorage.setItem("cached_tasks", JSON.stringify(tasks));
+    localStorage.setItem(
+      CONSTANTS.STORAGE_KEYS.CACHED_TASKS,
+      JSON.stringify(tasks),
+    );
 
     let filteredTasks = tasks;
     if (currentFilter !== "all") {
       filteredTasks = filteredTasks.filter(
-        (t) => statusToFilter(t.status) === currentFilter
+        (t) => statusToFilter(t.status) === currentFilter,
       );
     }
     if (currentCategory !== "all") {
       filteredTasks = filteredTasks.filter(
-        (t) => t.category === currentCategory
+        (t) => t.category === currentCategory,
       );
     }
     if (currentTimeFilter !== "all") {
@@ -406,14 +505,14 @@ async function loadTasks() {
     renderTasks(sortByPriority(applySearch(filteredTasks)));
     updateOverview(tasks);
   } catch (err) {
-    const cached = localStorage.getItem("cached_tasks");
+    const cached = localStorage.getItem(CONSTANTS.STORAGE_KEYS.CACHED_TASKS);
     if (cached) {
       const tasks = JSON.parse(cached);
       currentTasks = tasks;
       renderTasks(sortByPriority(applySearch(tasks)));
       updateOverview(tasks);
     } else {
-      alert(err?.response?.data?.message || err.message);
+      handleError(err, "Failed to load tasks");
     }
   }
 }
@@ -430,77 +529,70 @@ function renderTasks(tasks) {
   }
   empty?.classList.add("hidden");
 
-  const priorityColors = { high: "#6366f1", medium: "#fbbf24", low: "#34d399" };
-  const categoryColors = {
-    work: "#3b82f6",
-    personal: "#10b981",
-    shopping: "#f59e0b",
-    health: "#ef4444",
-    education: "#8b5cf6",
-    other: "#6b7280",
-  };
+  const priorityColors = CONSTANTS.PRIORITY_COLORS;
+  const categoryColors = CONSTANTS.CATEGORY_COLORS;
 
-  list.innerHTML = tasks
-    .map((t) => {
-      const status = statusToFilter(t.status);
-      const isCompleted = status === "done";
-      const isDoing = status === "doing";
-      const checked = isCompleted ? "checked" : "";
-      const doneClass = isCompleted ? "task-done" : isDoing ? "task-doing" : "";
+  // Use DocumentFragment for better performance
+  const fragment = document.createDocumentFragment();
 
-      return `
-      <li class="task-item ${doneClass}" data-id="${t._id}">
-        <div class="task-left">
-          <input type="checkbox" class="task-check" ${checked} />
-          ${status === 'todo' ? `<button type="button" class="doing-btn" onclick="setDoing('${t._id}')">Doing</button>` : ''}
-          <span class="priority-dot" style="background:${
-            priorityColors[t.priority] || priorityColors.medium
-          }"></span>
-          <div class="task-content">
-            <span class="task-text" ondblclick="editTask('${t._id}', '${
-        t.task
-      }')">${t.task}</span>
-            ${
-              t.description
-                ? `<div class="task-desc muted small">${t.description}</div>`
-                : ""
-            }
-            <div class="task-meta">
-              <span class="task-category" style="background-color: ${
-                categoryColors[t.category] || categoryColors.other
-              }20; color: ${
-        categoryColors[t.category] || categoryColors.other
-      }; border: 1px solid ${
-        categoryColors[t.category] || categoryColors.other
-      }40;">
-                ${t.category || "other"}
-              </span>
-              <span class="task-status status-${status}">${status}</span>
-            </div>
-            ${
-              t.deadline
-                ? `<div class="task-deadline muted small">
-              <span>⏰ ${formatDeadline(t.deadline)}</span>
-              ${
-                isOverdue(t)
-                  ? `<span class="overdue-badge">Overdue!</span>`
-                  : ""
-              }
-            </div>`
-                : ""
-            }
+  tasks.forEach((t) => {
+    const status = statusToFilter(t.status);
+    const isCompleted = status === "done";
+    const isDoing = status === "doing";
+    const checked = isCompleted ? "checked" : "";
+    const doneClass = isCompleted ? "task-done" : isDoing ? "task-doing" : "";
+
+    const li = document.createElement("li");
+    li.className = `task-item ${doneClass}`;
+    li.dataset.id = t._id;
+    li.innerHTML = `
+      <div class="task-left">
+        <input type="checkbox" class="task-check" ${checked} aria-label="Mark task as ${isCompleted ? "incomplete" : "complete"}" />
+        ${status === "todo" ? `<button type="button" class="doing-btn" onclick="setDoing('${t._id}')" aria-label="Set task to doing">Doing</button>` : ""}
+        <span class="priority-dot" style="background:${
+          priorityColors[t.priority] || priorityColors.medium
+        }" aria-label="Priority: ${t.priority}"></span>
+        <div onClick="openEditModal('${t._id}')" class="task-content" role="button" tabindex="0" aria-label="Edit task">
+          <span class="task-text">${escapeHtml(t.task)}</span>
+          ${
+            t.description
+              ? `<div class="task-desc muted small">${escapeHtml(t.description)}</div>`
+              : ""
+          }
+          <div class="task-meta">
+            <span class="task-category" style="background-color: ${
+              categoryColors[t.category] || categoryColors.other
+            }20; color: ${
+              categoryColors[t.category] || categoryColors.other
+            }; border: 1px solid ${
+              categoryColors[t.category] || categoryColors.other
+            }40;">
+              ${t.category || "other"}
+            </span>
+            <span class="task-status status-${status}">${status}</span>
           </div>
+          ${
+            t.deadline
+              ? `<div class="task-deadline muted small">
+            <span>⏰ ${formatDeadline(t.deadline)}</span>
+            ${isOverdue(t) ? `<span class="overdue-badge">Overdue!</span>` : ""}
+          </div>`
+              : ""
+          }
         </div>
-        <div class="task-right">  
-          <span class="task-priority">${t.priority}</span>
-          <button type="button" class="delete-btn" onclick="deleteTask('${
-            t._id
-          }')">Delete</button>
-        </div>
-      </li>
+      </div>
+      <div class="task-right">  
+        <span class="task-priority">${t.priority}</span>
+        <button type="button" class="delete-btn" onclick="deleteTask('${
+          t._id
+        }')" aria-label="Delete task">Delete</button>
+      </div>
     `;
-    })
-    .join("");
+    fragment.appendChild(li);
+  });
+
+  list.innerHTML = "";
+  list.appendChild(fragment);
 }
 
 // * Update Overview
@@ -520,22 +612,62 @@ function updateOverview(taskAll) {
 
 // * Event Listeners
 if (addForm) {
-  addForm.addEventListener("submit", (e) => {
+  addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(addForm);
     const data = Object.fromEntries(fd.entries());
 
+    console.log("Form data being submitted:", data);
+
     if (!validator.validateForm(data)) return;
 
-    addTask(
-      data.task,
-      data.priority,
-      data.description,
-      data.deadlineAt,
-      data.category,
-      data.status
-    );
+    const editId = addForm.dataset.editId;
+    if (editId) {
+      // Update existing task
+      try {
+        const updateData = {
+          task: data.task.trim(),
+          priority: data.priority,
+          description: data.description?.trim() || "",
+          deadline: data.deadlineAt
+            ? new Date(data.deadlineAt).toISOString()
+            : null,
+          category: data.category,
+          status: filterToStatus(data.status),
+        };
+
+        console.log("Update data being sent to server:", updateData);
+
+        await axios.patch(`${api}/task/${editId}`, updateData, authHeaders());
+
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+        alert(CONSTANTS.MESSAGES.TASK_UPDATED);
+        resetForm();
+        await loadTasks();
+      } catch (error) {
+        handleError(error, "Failed to update task");
+      }
+    } else {
+      // Add new task
+      addTask(
+        data.task,
+        data.priority,
+        data.description,
+        data.deadlineAt,
+        data.category,
+        data.status,
+      );
+    }
   });
+}
+
+function resetForm() {
+  addForm.reset();
+  resetFormSelects();
+  delete addForm.dataset.editId;
+  document.querySelector(".modal-head h3").textContent = "Add new task";
+  document.querySelector('button[type="submit"]').textContent = "Add";
 }
 
 // * Tabs
@@ -557,13 +689,17 @@ document.addEventListener("change", async (e) => {
   const li = e.target.closest(".task-item");
   const taskId = li.dataset.id;
   const isChecked = e.target.checked;
-    
+
   try {
     const newStatus = isChecked ? "COMPLETED" : "ACTIVE";
-    await axios.patch(`${api}/task/${taskId}`, { status: newStatus }, authHeaders());
+    await axios.patch(
+      `${api}/task/${taskId}`,
+      { status: newStatus },
+      authHeaders(),
+    );
     loadTasks();
   } catch (err) {
-    alert(err?.response?.data?.message || err.message);
+    handleError(err, "Failed to update task status");
     e.target.checked = !isChecked;
   }
 });
@@ -571,59 +707,139 @@ document.addEventListener("change", async (e) => {
 // * Set Doing function
 async function setDoing(taskId) {
   try {
-    await axios.patch(`${api}/task/${taskId}`, { status: "DOING" }, authHeaders());
+    await axios.patch(
+      `${api}/task/${taskId}`,
+      { status: "DOING" },
+      authHeaders(),
+    );
     loadTasks();
   } catch (err) {
-    alert(err?.response?.data?.message || err.message);
+    handleError(err, "Failed to set task status");
   }
 }
 
 // * CRUD Operations
 async function deleteTask(taskId) {
-  if (!confirm("Do you want to delete this task?")) return;
+  if (!confirm(CONSTANTS.MESSAGES.CONFIRM_DELETE)) return;
   try {
     await axios.delete(`${api}/task/${taskId}`, authHeaders());
     await loadTasks();
   } catch (error) {
-    alert(error?.response?.data?.message || error.message);
+    handleError(error, "Failed to delete task");
   }
 }
 
-async function editTask(taskId, oldValue) {
-  const newValue = prompt("Edit task name:", oldValue);
-  if (!newValue || newValue.trim() === oldValue) return;
+// * Edit Task Modal
+async function openEditModal(taskId) {
   try {
-    await axios.patch(
-      `${api}/task/${taskId}`,
-      { task: newValue.trim() },
-      authHeaders()
-    );
-    await loadTasks();
+    // Get fresh data from server
+    const res = await axios.get(`${api}/task/${taskId}`, authHeaders());
+    const task = res?.data?.data;
+    if (!task) return;
+    // console.log('Task data from server:', task);
+    // console.log('Task category:', task.category);
+
+    // * Fill form with task data
+    document.querySelector('[name="task"]').value = task.task;
+    document.querySelector('[name="description"]').value =
+      task.description || "";
+
+    // * Set deadline
+    if (task.deadline) {
+      const deadline = new Date(task.deadline);
+      const localDateTime = new Date(
+        deadline.getTime() - deadline.getTimezoneOffset() * 60000,
+      )
+        .toISOString()
+        .slice(0, 16);
+      document.querySelector('[name="deadlineAt"]').value = localDateTime;
+    } else {
+      document.querySelector('[name="deadlineAt"]').value = "";
+    }
+
+    // Set custom selects
+    setSelectValue("#category-select", task.category || "work");
+    setSelectValue("#priority-select", task.priority || "medium");
+    setSelectValue("#status-select", statusToFilter(task.status) || "todo");
+
+    // Change modal title and button
+    document.querySelector(".modal-head h3").textContent = "Edit Task";
+    document.querySelector('button[type="submit"]').textContent = "Update";
+
+    // Store task ID for update
+    addForm.dataset.editId = taskId;
+
+    modal.classList.remove("hidden");
+    modal.setAttribute("aria-hidden", "false");
   } catch (error) {
-    alert(error?.response?.data?.message || error.message);
+    handleError(error, "Failed to load task details");
+  }
+}
+
+function setSelectValue(selector, value) {
+  const select = document.querySelector(selector);
+  if (!select) {
+    console.warn(`Select element not found: ${selector}`);
+    return;
+  }
+
+  const textEl = select.querySelector(".select-text");
+  const hiddenInput = select.parentElement.querySelector(
+    'input[type="hidden"]',
+  );
+  const optionEl = select.querySelector(`[data-value="${value}"]`);
+
+  // console.log(`Setting ${selector} to value: ${value}`);
+  // console.log("Found option:", optionEl);
+  // console.log("Hidden input:", hiddenInput);
+
+  if (hiddenInput) {
+    hiddenInput.value = value;
+    console.log("Hidden input value set to:", hiddenInput.value);
+  }
+
+  if (optionEl) {
+    select
+      .querySelectorAll(".select-option")
+      .forEach((opt) => opt.classList.remove("selected"));
+    optionEl.classList.add("selected");
+
+    if (textEl) {
+      textEl.textContent = optionEl.textContent;
+      console.log("Text updated to:", optionEl.textContent);
+    }
+
+    const changeEvent = new CustomEvent("change", {
+      detail: { value: value, text: optionEl.textContent },
+    });
+    select.dispatchEvent(changeEvent);
+  } else {
+    console.warn(`Option with value "${value}" not found in ${selector}`);
+    if (textEl) textEl.textContent = value;
   }
 }
 
 async function clearCompletedTask() {
-  if (!confirm("Do you want to delete completed tasks?")) return;
+  if (!confirm(CONSTANTS.MESSAGES.CONFIRM_CLEAR)) return;
   try {
     const res = await axios.get(`${api}/task?status=COMPLETED`, authHeaders());
     const tasks = res?.data?.data || [];
     const myCompleted = filterTasksByUser(tasks);
 
     if (!myCompleted.length) {
-      alert("No completed tasks to clear");
+      alert(CONSTANTS.MESSAGES.NO_COMPLETED);
       return;
     }
 
     await Promise.all(
       myCompleted.map((t) =>
-        axios.delete(`${api}/task/${t._id}`, authHeaders())
-      )
+        axios.delete(`${api}/task/${t._id}`, authHeaders()),
+      ),
     );
     await loadTasks();
+    alert(CONSTANTS.MESSAGES.TASK_DELETED);
   } catch (error) {
-    alert(error?.response?.data?.message || error.message);
+    handleError(error, "Failed to clear completed tasks");
   }
 }
 
@@ -670,15 +886,27 @@ document.addEventListener("DOMContentLoaded", () => {
         error
           ? validator.showError(
               name === "deadlineAt" ? "deadline" : name,
-              error
+              error,
             )
           : validator.clearError(name === "deadlineAt" ? "deadline" : name);
       });
+    }
+  });
+
+  // * Keyboard support for task content
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.target.classList.contains("task-content") &&
+      (e.key === "Enter" || e.key === " ")
+    ) {
+      e.preventDefault();
+      e.target.click();
     }
   });
 });
 
 loadTasks();
 window.deleteTask = deleteTask;
-window.editTask = editTask;
+window.openEditModal = openEditModal;
 window.setDoing = setDoing;
+window.clearCompletedTask = clearCompletedTask;
