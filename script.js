@@ -25,7 +25,7 @@ const CONSTANTS = {
     TASK_DELETED: "Task deleted successfully!",
     CONFIRM_DELETE: "Do you want to delete this task?",
     CONFIRM_CLEAR: "Do you want to delete completed tasks?",
-    CONFIRM_LOGOUT: "Bạn muốn đăng xuất?",
+    CONFIRM_LOGOUT: "Do you want to log out?",
     NO_COMPLETED: "No completed tasks to clear",
     ERROR_GENERIC: "An error occurred. Please try again.",
   },
@@ -37,6 +37,11 @@ let currentCategory = "all";
 let currentTimeFilter = "all";
 let currentKeyword = "";
 let currentTasks = [];
+
+// * Pagination variables
+let currentPage = 1;
+let tasksPerPage = 5;
+let totalTasks = 0;
 
 // * Utility functions
 function debounce(func, wait) {
@@ -145,6 +150,12 @@ const progressTextEl = document.getElementById("progress-text");
 const progressBarEl = document.getElementById("progress-bar");
 const remainingEl = document.getElementById("remaining");
 
+// * Pagination elements
+const paginationEl = document.getElementById("pagination");
+const pageNumbersEl = document.getElementById("page-numbers");
+const prevBtn = document.getElementById("prev-btn");
+const nextBtn = document.getElementById("next-btn");
+
 // * Modal controls with keyboard support
 openBtn.addEventListener("click", () => {
   modal.classList.remove("hidden");
@@ -175,18 +186,19 @@ class FormValidator {
   validateTask(value) {
     if (!value || value.trim().length < 3)
       return "Task title must be at least 3 characters";
-    if (value.length > 100)
-      return "Task title must be less than 100 characters";
+    if (value.length > 50) return "Task title must be less than 100 characters";
     return null;
   }
 
   validateDescription(value) {
+    if (!value) return "Description can't be empty";
     if (value && value.length > 500)
       return "Description must be less than 500 characters";
     return null;
   }
 
   validateDeadline(value) {
+    if (!value) return "Deadline can't be empty";
     if (value && new Date(value) < new Date())
       return "Deadline cannot be in the past";
     return null;
@@ -407,7 +419,8 @@ function applyTimeFilter(tasks) {
 if (searchInput) {
   const debouncedSearch = debounce(() => {
     currentKeyword = searchInput.value.trim().toLowerCase();
-    renderTasks(sortByPriority(applySearch(currentTasks)));
+    currentPage = 1; // Reset to first page
+    loadTasks();
   }, 300);
 
   searchInput.addEventListener("input", debouncedSearch);
@@ -474,6 +487,55 @@ function resetFormSelects() {
   });
 }
 
+// * Pagination functions
+function paginateTasks(tasks) {
+  const startIndex = (currentPage - 1) * tasksPerPage;
+  const endIndex = startIndex + tasksPerPage;
+  return tasks.slice(startIndex, endIndex);
+}
+
+function renderPagination() {
+  const totalPages = Math.ceil(totalTasks / tasksPerPage);
+
+  if (totalPages <= 1) {
+    paginationEl.classList.add("hidden");
+    return;
+  }
+
+  paginationEl.classList.remove("hidden");
+
+  prevBtn.disabled = currentPage === 1;
+  nextBtn.disabled = currentPage === totalPages;
+
+  let pageNumbersHTML = "";
+  for (let i = 1; i <= totalPages; i++) {
+    const isActive = i === currentPage ? "active" : "";
+    pageNumbersHTML += `<button class="page-btn ${isActive}" onclick="goToPage(${i})">${i}</button>`;
+  }
+
+  pageNumbersEl.innerHTML = pageNumbersHTML;
+}
+
+function goToPage(page) {
+  currentPage = page;
+  const paginatedTasks = paginateTasks(currentTasks);
+  renderTasks(paginatedTasks);
+  renderPagination();
+}
+
+function goToPrevPage() {
+  if (currentPage > 1) {
+    goToPage(currentPage - 1);
+  }
+}
+
+function goToNextPage() {
+  const totalPages = Math.ceil(totalTasks / tasksPerPage);
+  if (currentPage < totalPages) {
+    goToPage(currentPage + 1);
+  }
+}
+
 // * Load Tasks
 async function loadTasks() {
   try {
@@ -501,15 +563,25 @@ async function loadTasks() {
       filteredTasks = applyTimeFilter(filteredTasks);
     }
 
+    filteredTasks = applySearch(filteredTasks);
+    filteredTasks = sortByPriority(filteredTasks);
+
+    totalTasks = filteredTasks.length;
     currentTasks = filteredTasks;
-    renderTasks(sortByPriority(applySearch(filteredTasks)));
+
+    const paginatedTasks = paginateTasks(filteredTasks);
+    renderTasks(paginatedTasks);
+    renderPagination();
     updateOverview(tasks);
   } catch (err) {
     const cached = localStorage.getItem(CONSTANTS.STORAGE_KEYS.CACHED_TASKS);
     if (cached) {
       const tasks = JSON.parse(cached);
+      totalTasks = tasks.length;
       currentTasks = tasks;
-      renderTasks(sortByPriority(applySearch(tasks)));
+      const paginatedTasks = paginateTasks(tasks);
+      renderTasks(paginatedTasks);
+      renderPagination();
       updateOverview(tasks);
     } else {
       handleError(err, "Failed to load tasks");
@@ -674,6 +746,7 @@ function resetForm() {
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
     currentFilter = btn.dataset.filter;
+    currentPage = 1; // Reset to first page
     document
       .querySelectorAll(".tab")
       .forEach((b) => b.classList.remove("tab-active"));
@@ -853,6 +926,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (categoryFilter) {
     categoryFilter.addEventListener("change", (e) => {
       currentCategory = e.detail.value;
+      currentPage = 1; // Reset to first page
       loadTasks();
     });
   }
@@ -861,8 +935,18 @@ document.addEventListener("DOMContentLoaded", () => {
   if (timeFilter) {
     timeFilter.addEventListener("change", (e) => {
       currentTimeFilter = e.detail.value;
+      currentPage = 1; // Reset to first page
       loadTasks();
     });
+  }
+
+  // * Pagination event listeners
+  if (prevBtn) {
+    prevBtn.addEventListener("click", goToPrevPage);
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener("click", goToNextPage);
   }
 
   // * Real-time validation
@@ -910,3 +994,4 @@ window.deleteTask = deleteTask;
 window.openEditModal = openEditModal;
 window.setDoing = setDoing;
 window.clearCompletedTask = clearCompletedTask;
+window.goToPage = goToPage;

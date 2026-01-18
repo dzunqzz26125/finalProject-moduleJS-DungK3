@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaskFlow — Todolist</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="pagination.css" />
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
   </head>
 
@@ -363,6 +364,13 @@
               </div>
 
               <ul id="task-list" class="task-list"></ul>
+
+              <!-- Pagination -->
+              <div id="pagination" class="pagination hidden">
+                <button id="prev-btn" class="btn btn-ghost" disabled>← Previous</button>
+                <div id="page-numbers" class="page-numbers"></div>
+                <button id="next-btn" class="btn btn-ghost">Next →</button>
+              </div>
 
               <!-- Footer -->
               <div class="footer">
