@@ -191,7 +191,6 @@ class FormValidator {
   }
 
   validateDescription(value) {
-    if (!value) return "Description can't be empty";
     if (value && value.length > 500)
       return "Description must be less than 500 characters";
     return null;
@@ -419,7 +418,7 @@ function applyTimeFilter(tasks) {
 if (searchInput) {
   const debouncedSearch = debounce(() => {
     currentKeyword = searchInput.value.trim().toLowerCase();
-    currentPage = 1; // Reset to first page
+    currentPage = 1;
     loadTasks();
   }, 300);
 
@@ -604,7 +603,17 @@ function renderTasks(tasks) {
   const priorityColors = CONSTANTS.PRIORITY_COLORS;
   const categoryColors = CONSTANTS.CATEGORY_COLORS;
 
-  // Use DocumentFragment for better performance
+  // * Use DocumentFragment for better performance
+  // giảm độ reflow/ repaint mỗi lần thay đổi status
+  // Ví dụ.:  const fragment = document.createDocumentFragment();
+  // tasks.forEach((t) => {
+  //   const li = document.createElement("li");
+  //   li.innerHTML = `...`;
+  //   fragment.appendChild(li); ← Chỉ thêm vào memory
+  // });
+  // list.appendChild(fragment); ← 1 lần DOM manipulation
+  // → 100 tasks = 1 lần DOM manipulation
+
   const fragment = document.createDocumentFragment();
 
   tasks.forEach((t) => {
